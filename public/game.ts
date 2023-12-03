@@ -54,7 +54,7 @@ import { STOCKED_CANVAS_H, STOCKED_CANVAS_W, stockedCtx } from "./stocked-mino-v
   /**
    * テトリミノのindexを抽選
    */
-  const generateRandomMinoIdx = () => Math.floor(Math.random() * (minoTypes.length - 1))
+  const generateRandomMinoIdx = () => Math.floor(Math.random() * (minoTypes.length - 1)) + 1
   
   /** ゲーム開始 */
   const startTetris$ = of(undefined)
@@ -130,7 +130,7 @@ import { STOCKED_CANVAS_H, STOCKED_CANVAS_W, stockedCtx } from "./stocked-mino-v
   const setMino = () => {
 		position_x = BOARD_COL / 2 - TETSIZE / 2
 		position_y = -1
-    minoIndex = nextMinoIndex || generateRandomMinoIdx()
+    minoIndex = nextMinoIndex === undefined ? generateRandomMinoIdx() : nextMinoIndex
     nextMinoIndex = generateRandomMinoIdx()
 		mino = minoTypes[minoIndex]
     nextMino = minoTypes[nextMinoIndex]
@@ -560,8 +560,8 @@ import { STOCKED_CANVAS_H, STOCKED_CANVAS_W, stockedCtx } from "./stocked-mino-v
 
 	// ---------- ↓ ゲームシステム関連 ↓ ----------
 
-	/** ゲーム処理全体 */
-  const gameInterval$ = startTetris$.pipe(
+  /** ゲームの初期化 */
+  const initializedGame$ = startTetris$.pipe(
     // ボードの初期化
     tap(() => initializeBoard()),
 		// ミノをセット
@@ -569,7 +569,11 @@ import { STOCKED_CANVAS_H, STOCKED_CANVAS_W, stockedCtx } from "./stocked-mino-v
 		// 最初のミノを描画
 		switchMap(() => draw$),
     // 次のミノの描画
-    switchMap(() => nextMinoDraw$),
+    switchMap(() => nextMinoDraw$)
+  )
+
+	/** ゲーム処理全体 */
+  const gameInterval$ = initializedGame$.pipe(
 		// ゲームのタイマーをスタートして、キーボード操作も受け付ける
     switchMap(() => merge(
 			// ゲーム更新を走らせる

@@ -57,8 +57,13 @@ export const L_Mino: MinoType = [
   [0, 0, 0, 0],
 ]
 
+/** 空 ミノ */
+export const Empty_Mino: MinoType = []
+
+
 //テトリミノの種類
 export const minoTypes: MinoType[] = [
+  Empty_Mino,
   O_Mino,
   T_Mino,
   Z_Mino,
@@ -70,6 +75,7 @@ export const minoTypes: MinoType[] = [
 
 //テトリミノの色
 export const minoColors = [
+  '', // 基本呼ばれない
   '#f6fe85', // O
   '#956daf', // T
   '#f94246', // Z
