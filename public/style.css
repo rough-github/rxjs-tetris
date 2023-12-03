@@ -1,0 +1,89 @@
+main {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-image:
+    repeating-linear-gradient(
+        90deg,
+        #000 ,
+        #000 1px,
+        transparent 1px,
+        transparent 32px
+    ),
+    repeating-linear-gradient(
+        0deg,
+        #000 ,
+        #000 1px,
+        #fff 1px,
+        #fff 32px
+    );
+
+    .score {
+        height: 40px;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #fff;
+        margin-bottom: 16px;
+        font-size: 32px;
+        font-weight: bold;
+    };
+
+    .game-container {
+        display: flex;
+        justify-content: center;
+        column-gap: 16px;
+    };
+
+    .next-mino-area, .stock-mino-area {
+        display: flex;
+        flex-direction: column;
+
+        > label {
+            height: 40px;
+            width: 100%;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;  
+            margin-bottom: 8px;
+        };
+
+        > canvas {
+            height: 180px;
+            margin-bottom: auto;
+        };
+    };
+
+    .stock-mino-area {
+        display: flex;
+        flex-direction: column;
+
+        > label {
+            height: 40px;
+            width: 100%;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;  
+            margin-bottom: 8px;
+        };
+
+        > canvas {
+            background-color: #eceae8;
+            width: 180px;
+            height: 180px;
+            margin-bottom: auto;
+        };
+    };
+
+    .guide-container {
+        text-align: center;
+        font-size: 14px;
+        background-color: #fff;
+
+        > ul {
+            list-style-type: none;
+        }
+    }
+}

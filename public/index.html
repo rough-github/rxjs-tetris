@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css">
+    <title>RxJSで組むテトリス</title>
+    <main>
+        <div id="container">
+            <section class="score">得点: <span id="score">0</span></section>
+            <div class="game-container">
+                <div class="stock-mino-area">
+                    <label>ストック</label>
+                    <canvas id="stocked"></canvas>
+                </div>
+                <canvas id="cvs"></canvas>
+                <div class="next-mino-area">
+                    <label>次のミノ</label>
+                    <canvas id="next"></canvas>
+                </div>
+            </div>
+            <div class="guide-container">
+                <ul>
+                    <li>左矢印「←」: ミノを左へ移動</li>
+                    <li>下矢印「↓」: ミノを下へ移動</li>
+                    <li>右矢印「→」: ミノを右へ移動</li>
+                    <li>スペース「Space」: ミノを回転</li>
+                    <li>エスケープ「Esc」: ミノをストック</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+    <script type="module" src="./game.ts"></script>
+  </head>
+  <body></body>
+</html>
