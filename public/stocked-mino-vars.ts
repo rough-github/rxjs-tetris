@@ -2,8 +2,8 @@
 import { BLOCK_SIZE } from "./vars.ts";
 
 //キャンバスの取得
-export const stocked = document.getElementById('stocked') as HTMLCanvasElement
-export const stockedCtx = stocked.getContext('2d') as CanvasRenderingContext2D
+export const stocked = document.getElementById("stocked") as HTMLCanvasElement;
+export const stockedCtx = stocked.getContext("2d") as CanvasRenderingContext2D;
 
 //次のミノのボードサイズ
 export const STOCKED_BOARD_ROW = 6;

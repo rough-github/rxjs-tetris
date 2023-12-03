@@ -11,10 +11,10 @@ export const BOARD_ROW = 20;
 export const BOARD_COL = 10;
 
 /** キャンバスの取得 */
-export const cvs = document.getElementById('cvs') as HTMLCanvasElement
+export const cvs = document.getElementById("cvs") as HTMLCanvasElement;
 
 /** 2dコンテキストを取得 */
-export const ctx = cvs.getContext('2d') as CanvasRenderingContext2D
+export const ctx = cvs.getContext("2d") as CanvasRenderingContext2D;
 
 /** キャンバスサイズ */
 export const CANVAS_W = BLOCK_SIZE * BOARD_COL;
@@ -26,4 +26,4 @@ cvs.height = CANVAS_H;
 export const TETSIZE = 4;
 
 /** 点数 */
-export const score = 0
+export const score = 0;
