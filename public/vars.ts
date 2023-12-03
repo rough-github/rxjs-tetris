@@ -4,7 +4,7 @@
 export const SPEED = 750;
 
 /** ブロック1マスの大きさ */
-export const BLOCK_SIZE = 30;
+export const BLOCK_SIZE = 20;
 
 /** ボードサイズ */
 export const BOARD_ROW = 20;
