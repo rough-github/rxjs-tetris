@@ -19,7 +19,7 @@ main {
         #fff 32px
     );
 
-    .score {
+    .score, .time {
         height: 40px;
         width: 100%;
         display: flex;

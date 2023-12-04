@@ -1,4 +1,22 @@
-import { minoColors, MinoType, minoTypes, Rotated_T_Mino } from "./mino.ts";
+import {
+  filter,
+  fromEvent,
+  iif,
+  interval,
+  map,
+  merge,
+  mergeMap,
+  NEVER,
+  Observable,
+  of,
+  shareReplay,
+  Subject,
+  switchMap,
+  takeUntil,
+  tap,
+// } from "https://code4fukui.github.io/rxjs-es/rxjs.js";
+} from "https://deno.land/x/rxjs@v1.0.2/mod.ts";
+import { isEqual } from "https://cdn.jsdelivr.net/npm/lodash-es@4.17.21/lodash.min.js";
 import {
   BLOCK_SIZE,
   BOARD_COL,
@@ -9,34 +27,13 @@ import {
   SPEED,
   TETSIZE,
 } from "./vars.ts";
-import {
-  filter,
-  fromEvent,
-  iif,
-  interval,
-  map,
-  merge,
-  mergeMap,
-  NEVER,
-  of,
-  shareReplay,
-  Subject,
-  switchMap,
-  takeUntil,
-  tap,
-  zip,
-} from "https://code4fukui.github.io/rxjs-es/rxjs.js";
-// } from "https://deno.land/x/rxjs@v1.0.2/mod.ts";
-import { isEqual } from "https://cdn.jsdelivr.net/npm/lodash-es@4.17.21/lodash.min.js";
+import { minoColors, MinoType, minoTypes, Rotated_T_Mino } from "./mino.ts";
 import { NEXT_CANVAS_H, NEXT_CANVAS_W, nextCtx } from "./next-mino-vars.ts";
 import {
   STOCKED_CANVAS_H,
   STOCKED_CANVAS_W,
   stockedCtx,
 } from "./stocked-mino-vars.ts";
-
-// ゲームオーバーフラグ
-const isGameOver$ = new Subject<void>();
 
 // ---------- ↓ 初期化時の処理 ↓ ----------
 
@@ -46,14 +43,17 @@ const board: number[][] = [];
 /**
  * ボードを初期化
  */
-const initializeBoard = () => {
-  for (let y = 0; y < BOARD_ROW; y++) {
-    board[y] = [];
-    for (let x = 0; x < BOARD_COL; x++) {
-      board[y][x] = 0;
-    }
-  }
-};
+const initializeBoard$ = <T>(source$: Observable<T>): Observable<T> =>
+  source$.pipe(
+    tap(() => {
+      for (let y = 0; y < BOARD_ROW; y++) {
+        board[y] = [];
+        for (let x = 0; x < BOARD_COL; x++) {
+          board[y][x] = 0;
+        }
+      }
+    })
+  )
 
 /**
  * テトリミノのindexを抽選
@@ -92,95 +92,335 @@ let position_y = -1;
 /** x座標 */
 let position_x = BOARD_COL / 2 - TETSIZE / 2;
 
-/** 対象のミノ */
-const mino$ = of(undefined).pipe(switchMap(() => of(mino)));
-
-/** 対象のミノ */
-const nextMino$ = of(undefined).pipe(switchMap(() => of(nextMino)));
-
-/** ストックのミノ */
-const stockedMino$ = of(undefined).pipe(switchMap(() => of(stockedMino)));
-
-/** 対象のミノのID */
-const minoIndex$ = of(undefined).pipe(switchMap(() => of(minoIndex)));
-
-/** 次のミノのID */
-const nextMinoIndex$ = of(undefined).pipe(switchMap(() => of(nextMinoIndex)));
-
-/** 次のミノのID */
-const stockedMinoIndex$ = of(undefined).pipe(
-  switchMap(() => of(stockedMinoIndex)),
-);
-
-/** 対象のミノの位置 (x軸) */
-const minoPositionX$ = of(undefined).pipe(switchMap(() => of(position_x)));
-
-/** 対象のミノの位置 (y軸) */
-const minoPositionY$ = of(undefined).pipe(switchMap(() => of(position_y)));
-
 /**
  * 呼び出される度にy座標を1マス下げる
  */
-const moveDown$ = of(undefined).pipe(switchMap(() => of(++position_y)));
+const moveDown$ = of(undefined).pipe(tap(() => ++position_y));
 
 /**
  * 呼び出される度にx座標を1マス左へ
  */
-const moveLeft$ = of(undefined).pipe(switchMap(() => of(--position_x)));
+const moveLeft$ = of(undefined).pipe(tap(() => --position_x));
 
 /**
  * 呼び出される度にx座標を1マス右へ
  */
-const moveRight$ = of(undefined).pipe(switchMap(() => of(++position_x)));
+const moveRight$ = of(undefined).pipe(tap(() => ++position_x));
 
-/** ミノをセット */
-const setMino = () => {
-  position_x = BOARD_COL / 2 - TETSIZE / 2;
-  position_y = -1;
-  minoIndex = nextMinoIndex === undefined
-    ? generateRandomMinoIdx()
-    : nextMinoIndex;
-  nextMinoIndex = generateRandomMinoIdx();
-  mino = minoTypes[minoIndex];
-  nextMino = minoTypes[nextMinoIndex];
-};
+/** ミノをセットする */
+const setMino$ = <T>(source$: Observable<T>): Observable<T> => {
+  return source$.pipe(
+    // ミノをセット
+    tap(() => {
+      position_x = BOARD_COL / 2 - TETSIZE / 2;
+      position_y = -1;
+      minoIndex = nextMinoIndex === undefined
+        ? generateRandomMinoIdx()
+        : nextMinoIndex;
+      mino = minoTypes[minoIndex];
+    }),
+    // 次のミノをセット
+    tap(() => {
+      nextMinoIndex = generateRandomMinoIdx();
+      nextMino = minoTypes[nextMinoIndex];
+    })
+  );
+}
 
 // ---------- ↑ ミノに関する情報 ↑ ----------
 
+// ---------- ↓ 得点に関する情報 ↓ ----------
+
+const showScore = () => {
+  const scoreEl = document.getElementById("score");
+  if (scoreEl) {
+    const score = scoreEl.textContent;
+    window.alert(`ゲームーオーバーです。点数は${score}点でした。`);
+  }
+};
+
+/** 得点を追加 */
+const addScore$ = (source$: Observable<number>): Observable<number> => 
+  source$.pipe(
+    tap(clearLineCount => {
+      const scoreEl = document.getElementById("score");
+      if (scoreEl) {
+        const nowScore = Number(scoreEl.textContent);
+        let baseScore = 0;
+        baseScore += clearLineCount * 100;
+
+        // テトリス！！
+        if (clearLineCount === 4) {
+          baseScore += 400;
+        }
+
+        // Tスピン！！
+        if (Rotated_T_Mino.some((m) => isEqual(m, mino))) {
+          switch (clearLineCount) {
+            case 2:
+              baseScore *= 2;
+              break;
+            case 3:
+              baseScore *= 3;
+              break;
+            default:
+              break;
+          }
+        }
+        scoreEl.textContent = (nowScore + baseScore).toString();
+      }
+    }),
+  );
+
+// ---------- ↑ 得点に関する情報 ↑ ----------
+
+// ---------- ↓ テトリス描画関連 ↓ ----------
+
+/**
+ * ミノを描画する
+ */
+const draw$ = <T>(source$: Observable<T>): Observable<T> =>
+  source$.pipe(
+    tap(() => draw(mino!, position_x, position_y, minoIndex!))
+  )
+
+/**
+ * 描画処理
+ * @param mino 対象のミノ
+ * @param minoPositionX ミノのx座標
+ * @param minoPositionY ミノのy座標
+ * @param minoIndex ミノのID
+ */
+const draw = (
+  mino: number[][],
+  minoPositionX: number,
+  minoPositionY: number,
+  minoIndex: number,
+) => {
+  //塗りに黒を設定
+  ctx.fillStyle = "#eceae8";
+  //キャンバスを塗りつぶす
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  //ボードに存在しているブロックを塗る
+  for (let y = 0; y < BOARD_ROW; y++) {
+    for (let x = 0; x < BOARD_COL; x++) {
+      if (board[y][x]) {
+        drawBlock(ctx, x, y, board[y][x]);
+      }
+    }
+  }
+
+  //テトリミノの描画
+  for (let y = 0; y < TETSIZE; y++) {
+    for (let x = 0; x < TETSIZE; x++) {
+      if (mino[y][x]) {
+        drawBlock(ctx, minoPositionX + x, minoPositionY + y, minoIndex);
+      }
+    }
+  }
+};
+
+const nextMinoDraw$ = <T>(source$: Observable<T>): Observable<T> => 
+  source$.pipe(
+    tap(() => nextMinoDraw(nextMino!, nextMinoIndex!))
+  )
+
+/**
+ * 描画処理
+ * @param mino 対象のミノ
+ * @param minoPositionX ミノのx座標
+ * @param minoPositionY ミノのy座標
+ * @param minoIndex ミノのID
+ */
+const nextMinoDraw = (mino: number[][], minoIndex: number) => {
+  //塗りに黒を設定
+  nextCtx.fillStyle = "#eceae8";
+  //キャンバスを塗りつぶす
+  nextCtx.fillRect(0, 0, NEXT_CANVAS_W, NEXT_CANVAS_H);
+
+  //テトリミノの描画
+  for (let y = 0; y < TETSIZE; y++) {
+    for (let x = 0; x < TETSIZE; x++) {
+      if (mino[y][x]) {
+        drawBlock(nextCtx, x + 1, y + 1, minoIndex);
+      }
+    }
+  }
+};
+
+/**
+ * 次のミノを描画する
+ */
+const stockedMinoDraw$ = <T>(source$: Observable<T>): Observable<T> =>
+  source$.pipe(
+    tap(() => stockedMinoDraw(stockedMino!, stockedMinoIndex!))
+  )
+
+/**
+ * 描画処理
+ * @param mino 対象のミノ
+ * @param minoPositionX ミノのx座標
+ * @param minoPositionY ミノのy座標
+ * @param minoIndex ミノのID
+ */
+const stockedMinoDraw = (mino: number[][], minoIndex: number) => {
+  //塗りに黒を設定
+  stockedCtx.fillStyle = "#eceae8";
+  //キャンバスを塗りつぶす
+  stockedCtx.fillRect(0, 0, STOCKED_CANVAS_W, STOCKED_CANVAS_H);
+
+  //テトリミノの描画
+  for (let y = 0; y < TETSIZE; y++) {
+    for (let x = 0; x < TETSIZE; x++) {
+      if (mino[y][x]) {
+        drawBlock(stockedCtx, x + 1, y + 1, minoIndex);
+      }
+    }
+  }
+};
+
+/**
+ * ブロック一つを描画する
+ * @param x x座標
+ * @param y y座標
+ * @param minoIndex
+ */
+const drawBlock = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  minoIndex: number,
+) => {
+  const px = x * BLOCK_SIZE;
+  const py = y * BLOCK_SIZE;
+  //塗りを設定
+  ctx.fillStyle = minoColors[minoIndex];
+  ctx.fillRect(px, py, BLOCK_SIZE, BLOCK_SIZE);
+  //線を設定
+  ctx.strokeStyle = "black";
+  //線を描画
+  ctx.strokeRect(px, py, BLOCK_SIZE, BLOCK_SIZE);
+};
+
+/** 動きが止まったミノをボード座標に書き写す */
+const fixTet$ = <T>(source$: Observable<T>): Observable<T> => 
+  source$.pipe(
+    tap(() => {
+      for (let y = 0; y < TETSIZE; y++) {
+        for (let x = 0; x < TETSIZE; x++) {
+          if (mino![y][x]) {
+            //ボードに書き込む
+            board[position_y + y][position_x + x] = minoIndex!;
+          }
+        }
+      }
+    })
+  )
+
+/** 揃っている行があれば消す */
+const clearLine$ = <T>(source$: Observable<T>): Observable<number> => 
+  source$.pipe(
+    map(() => {
+      /** 削除する行 */
+      let clearLineCount = 0;
+
+      //ボードの行を上から調査
+      for (let y = 0; y < BOARD_ROW; y++) {
+        // 一列揃ってると仮定する(フラグ)
+        let isLineOK = true;
+        // 列に0が入っていないか調査
+        for (let x = 0; x < BOARD_COL; x++) {
+          if (board[y][x] === 0) {
+            // 0が入ってたのでフラグをfalse
+            isLineOK = false;
+            break;
+          }
+        }
+        if (isLineOK) {
+          // 消した行のカウントをインクリメント
+          clearLineCount++;
+          // ここに来るということはその列が揃っていたことを意味する
+          // その行から上に向かってfor文を動かす
+          for (let ny = y; ny > 0; ny--) {
+            for (let nx = 0; nx < BOARD_COL; nx++) {
+              //一列上の情報をコピーする
+              board[ny][nx] = board[ny - 1][nx];
+            }
+          }
+        }
+      }
+
+      return clearLineCount;
+    })
+  )
+
+// ---------- ↑ テトリス描画関連 ↑ ----------
+
+// ---------- ↓ ゲームの終了処理関連 ↓ ----------
+
+// ゲームオーバーフラグ
+const isGameOver$ = new Subject<void>();
+
+/**
+ * ゲームオーバーかcheckする
+ */
+const checkGameOver$ = <T>(source$: Observable<T>): Observable<boolean> =>
+  source$.pipe(
+    mergeMap(() => canMinoMove$(0, 1)),
+    tap(canMove => {
+      if (!canMove) {
+        // ゲームーオーバー
+        isGameOver$.next()
+        showScore()
+      }
+    })
+  )
+
+/** タイマーを走らせる */
+const startTimer$ = <T>(source$: Observable<T>): Observable<number> =>
+  source$.pipe(
+    switchMap(() => interval(1000)),
+    takeUntil(isGameOver$),
+    tap(count => {
+      const timeEl = document.getElementById('time')
+      if (timeEl) {
+        timeEl.textContent = (60 - count).toString()
+        if (count === 60) {
+          isGameOver$.next()
+        }
+      }
+    })
+  )
+
+// ---------- ↑ ゲームの終了処理関連 ↑ ----------
+
 // ---------- ↓ テトリス移動関連 ↓ ----------
 
-// 下に行けない
-const cantMove$ = zip([
-  mino$,
-  minoPositionX$,
-  minoPositionY$,
-  minoIndex$,
-]).pipe(
+/** 下に動かせない時の処理 */
+const cantMove$ = of(undefined).pipe(
   // ミノをその場所に固定
-  switchMap(([mino, minoPositionX, minoPositionY, minoIndex]) =>
-    fixTet(mino!, minoPositionX, minoPositionY, minoIndex!)
-  ),
+  fixTet$,
   // 行が揃っていれば削除
-  switchMap(() => clearLine()),
-  switchMap((clearLineCount) => addScore(clearLineCount)),
-  tap(() => setMino()),
-  switchMap(() => nextMinoDraw$),
-  // ミノをセットした後に下に動けなかったらゲームオーバー
-  switchMap(() => checkGameOver$),
-);
+  clearLine$,
+  // 得点を加算
+  addScore$,
+  // ミノをセット
+  setMino$,
+  // ゲームオーバーかcheckする
+  checkGameOver$,
+  // 次のミノを描画
+  nextMinoDraw$
+)
 
 /** ミノが移動可能かどうか */
-const canMinoMove = (
+const canMinoMove$ = (
   dx: number,
   dy: number,
-) =>
-  zip([
-    mino$,
-    minoPositionX$,
-    minoPositionY$,
-  ]).pipe(map(([mino, minoPositionX, minoPositionY]) =>
-    canMove(dx, dy, minoPositionX, minoPositionY, mino!)
-  ));
+): Observable<boolean> => of(undefined).pipe(
+  filter(() => !!mino),
+  switchMap(() => of(canMove(dx, dy, position_x, position_y, mino!)))
+)
 
 /**
  * 指定された方向に移動できるか？
@@ -227,7 +467,7 @@ const canMove = (
 /**
  * ミノを下に移動させる
  */
-const minoMoveDown$ = canMinoMove(0, 1).pipe(
+const minoMoveDown$ = canMinoMove$(0, 1).pipe(
   switchMap((data) =>
     iif(
       () => data,
@@ -239,92 +479,20 @@ const minoMoveDown$ = canMinoMove(0, 1).pipe(
 
 // ---------- ↑ テトリス移動関連 ↑ ----------
 
-// ---------- ↓ キーボード操作関連 ↓ ----------
-
-const keyboardEvent$ = fromEvent<KeyboardEvent>(document, "keydown").pipe(
-  shareReplay(1),
-);
-
-const keyDown$ = keyboardEvent$.pipe(
-  filter((e: KeyboardEvent) => e.code === "ArrowDown"),
-).pipe(
-  switchMap(() => canMinoMove(0, 1)),
-  switchMap((data) =>
-    iif(
-      () => data,
-      moveDown$,
-      NEVER,
-    )
-  ),
-);
-
-const keyLeft$ = keyboardEvent$.pipe(
-  filter((e: KeyboardEvent) => e.code === "ArrowLeft"),
-).pipe(
-  switchMap(() => canMinoMove(-1, 0)),
-  switchMap((data) =>
-    iif(
-      () => data,
-      moveLeft$,
-      NEVER,
-    )
-  ),
-);
-
-const keyRight$ = keyboardEvent$.pipe(
-  filter((e: KeyboardEvent) => e.code === "ArrowRight"),
-).pipe(
-  switchMap(() => canMinoMove(1, 0)),
-  switchMap((data) =>
-    iif(
-      () => data,
-      moveRight$,
-      NEVER,
-    )
-  ),
-);
-
-const keySpace$ = keyboardEvent$.pipe(
-  filter((e: KeyboardEvent) => e.code === "Space"),
-).pipe(
-  switchMap(() => createRotateMino$),
-);
-
-const keyEscape$ = keyboardEvent$.pipe(
-  filter((e: KeyboardEvent) => e.code === "Escape"),
-).pipe(
-  switchMap(() => stockOrExchangeMino$),
-);
-const keyboardEventListener$ = merge(
-  keyDown$,
-  keyLeft$,
-  keyRight$,
-  keySpace$,
-  keyEscape$,
-);
-
-// ---------- ↑ キーボード操作関連 ↑ ----------
-
 // ---------- ↓ ミノ回転関連 ↓ ----------
 
 /** ミノを回転させる */
-const createRotateMino$ = mino$.pipe(
-  map((mino) => createRotateMino(mino as MinoType)),
-  switchMap((newMino) =>
-    zip([
-      of(newMino),
-      minoPositionX$,
-      minoPositionY$,
-    ])
-  ),
-  switchMap(([newMino, minoPositionX, minoPositionY]) => {
-    if (canMove(0, 0, minoPositionX, minoPositionY, newMino)) {
-      mino = newMino;
-      return of(undefined);
-    }
-    return NEVER;
-  }),
-);
+const createRotateMino$ = <T>(source$: Observable<T>): Observable<void> =>
+  source$.pipe(
+    map(() => createRotateMino(mino!)),
+    switchMap(newMino => {
+      if (canMove(0, 0, position_x, position_y, newMino)) {
+        mino = newMino;
+        return of(undefined);
+      }
+      return NEVER;
+    })
+  )
 
 /** ミノを回転させる */
 const createRotateMino = (mino: MinoType) => {
@@ -344,294 +512,134 @@ const createRotateMino = (mino: MinoType) => {
 
 // ---------- ↓ ミノ交換関連 ↓ ----------
 
-const stockOrExchangeMino$ = stockedMino$.pipe(
-  switchMap((stockedMino) =>
+/** ストックにミノがあれば交換して、なければストックする */
+const stockOrExchangeMino$ = <T>(source$: Observable<T>): Observable<void | boolean> =>
+  source$.pipe(
+    switchMap(() =>
     iif(
       () => !!stockedMino,
       // 交換
       exchangeMino$,
       // ストック
       stockMino$,
-    )
-  ),
-);
+    ))
+  )
 
-const stockMino$ = zip([
-  mino$,
-  minoIndex$,
-]).pipe(
-  tap(([mino, minoIndex]) => stockMino(mino!, minoIndex!)),
-  switchMap(() => stockedMinoDraw$),
-  tap(() => setMino()),
-);
+/** ミノをストックに入れる */
+const stockMino$ = of(undefined).pipe(
+  tap(() => stockMino(mino!, minoIndex!)),
+  stockedMinoDraw$,
+  setMino$,
+)
 
 const stockMino = (mino: MinoType, minoInidex: number) => {
   stockedMino = mino;
   stockedMinoIndex = minoInidex;
 };
 
-const exchangeMino$ = zip([
-  minoPositionX$,
-  minoPositionY$,
-  stockedMino$,
-]).pipe(
-  switchMap(([minoPositionX, minoPositionY, stockedMino]) =>
-    exchangeMino(minoPositionX!, minoPositionY!, stockedMino!)
-  ),
-  switchMap(() => stockedMinoDraw$),
-);
+/** ミノをストックにあるものと交換できたら交換する */
+const exchangeMino$ = of(undefined).pipe(
+  map(() => canMove(0, 0, position_x, position_y, stockedMino!)),
+  filter(canExchange => canExchange),
+  tap(() => exchangeMino()),
+  stockedMinoDraw$,
+)
 
-const exchangeMino = (
-  minoPositionX: number,
-  minoPositionY: number,
-  currentStockedMino: MinoType,
-) => {
-  if (canMove(0, 0, minoPositionX, minoPositionY, currentStockedMino)) {
-    // ミノを入換え
-    const tempMino = stockedMino;
-    stockedMino = mino!;
-    mino = tempMino;
+/** ミノをストックにあるものと交換する */
+const exchangeMino = () => {
+  // ミノを入換え
+  const tempMino = stockedMino;
+  stockedMino = mino!;
+  mino = tempMino;
 
-    // ミノのIDを
-    const tempMinoIndex = minoIndex;
-    minoIndex = stockedMinoIndex;
-    stockedMinoIndex = tempMinoIndex;
-
-    return of(undefined);
-  } else {
-    return NEVER;
-  }
+  // ミノのIDを
+  const tempMinoIndex = minoIndex;
+  minoIndex = stockedMinoIndex;
+  stockedMinoIndex = tempMinoIndex;
 };
 
 // ---------- ↑ ミノ交換関連 ↑ ----------
 
-// ---------- ↓ テトリス描画関連 ↓ ----------
+// ---------- ↓ キーボード操作関連 ↓ ----------
 
-/**
- * ミノを描画する
- */
-const draw$ = zip([
-  mino$,
-  minoPositionX$,
-  minoPositionY$,
-  minoIndex$,
-]).pipe(
-  // ミノをその場所に固定
-  mergeMap(([mino, minoPositionX, minoPositionY, minoIndex]) =>
-    draw(mino!, minoPositionX, minoPositionY, minoIndex!)
+const keyboardEvent$ = fromEvent<KeyboardEvent>(document, "keydown").pipe(
+  shareReplay(1),
+);
+
+const keyDown$ = keyboardEvent$.pipe(
+  filter((e: KeyboardEvent) => e.code === "ArrowDown"),
+).pipe(
+  switchMap(() => canMinoMove$(0, 1)),
+  switchMap((data) =>
+    iif(
+      () => data,
+      moveDown$,
+      NEVER,
+    )
   ),
 );
 
-/**
- * 描画処理
- * @param mino 対象のミノ
- * @param minoPositionX ミノのx座標
- * @param minoPositionY ミノのy座標
- * @param minoIndex ミノのID
- */
-const draw = (
-  mino: number[][],
-  minoPositionX: number,
-  minoPositionY: number,
-  minoIndex: number,
-) => {
-  //塗りに黒を設定
-  ctx.fillStyle = "#eceae8";
-  //キャンバスを塗りつぶす
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-  //ボードに存在しているブロックを塗る
-  for (let y = 0; y < BOARD_ROW; y++) {
-    for (let x = 0; x < BOARD_COL; x++) {
-      if (board[y][x]) {
-        drawBlock(ctx, x, y, board[y][x]);
-      }
-    }
-  }
-
-  //テトリミノの描画
-  for (let y = 0; y < TETSIZE; y++) {
-    for (let x = 0; x < TETSIZE; x++) {
-      if (mino[y][x]) {
-        drawBlock(ctx, minoPositionX + x, minoPositionY + y, minoIndex);
-      }
-    }
-  }
-
-  return of(undefined);
-};
-
-/**
- * 次のミノを描画する
- */
-const nextMinoDraw$ = zip([
-  nextMino$,
-  nextMinoIndex$,
-]).pipe(
-  // ミノをその場所に固定
-  mergeMap(([nextMino, nextMinoIndex]) =>
-    nextMinoDraw(nextMino!, nextMinoIndex!)
+const keyLeft$ = keyboardEvent$.pipe(
+  filter((e: KeyboardEvent) => e.code === "ArrowLeft"),
+).pipe(
+  switchMap(() => canMinoMove$(-1, 0)),
+  switchMap((data) =>
+    iif(
+      () => data,
+      moveLeft$,
+      NEVER,
+    )
   ),
 );
 
-/**
- * 描画処理
- * @param mino 対象のミノ
- * @param minoPositionX ミノのx座標
- * @param minoPositionY ミノのy座標
- * @param minoIndex ミノのID
- */
-const nextMinoDraw = (mino: number[][], minoIndex: number) => {
-  //塗りに黒を設定
-  nextCtx.fillStyle = "#eceae8";
-  //キャンバスを塗りつぶす
-  nextCtx.fillRect(0, 0, NEXT_CANVAS_W, NEXT_CANVAS_H);
-
-  //テトリミノの描画
-  for (let y = 0; y < TETSIZE; y++) {
-    for (let x = 0; x < TETSIZE; x++) {
-      if (mino[y][x]) {
-        drawBlock(nextCtx, x + 1, y + 1, minoIndex);
-      }
-    }
-  }
-
-  return of(undefined);
-};
-
-/**
- * 次のミノを描画する
- */
-const stockedMinoDraw$ = zip([
-  stockedMino$,
-  stockedMinoIndex$,
-]).pipe(
-  // ミノをその場所に固定
-  mergeMap(([stockedMino, stockedMinoIndex]) =>
-    stockedMinoDraw(stockedMino!, stockedMinoIndex!)
+const keyRight$ = keyboardEvent$.pipe(
+  filter((e: KeyboardEvent) => e.code === "ArrowRight"),
+).pipe(
+  switchMap(() => canMinoMove$(1, 0)),
+  switchMap((data) =>
+    iif(
+      () => data,
+      moveRight$,
+      NEVER,
+    )
   ),
 );
 
-/**
- * 描画処理
- * @param mino 対象のミノ
- * @param minoPositionX ミノのx座標
- * @param minoPositionY ミノのy座標
- * @param minoIndex ミノのID
- */
-const stockedMinoDraw = (mino: number[][], minoIndex: number) => {
-  //塗りに黒を設定
-  stockedCtx.fillStyle = "#eceae8";
-  //キャンバスを塗りつぶす
-  stockedCtx.fillRect(0, 0, STOCKED_CANVAS_W, STOCKED_CANVAS_H);
+const keySpace$ = keyboardEvent$.pipe(
+  filter((e: KeyboardEvent) => e.code === "Space"),
+).pipe(
+  createRotateMino$,
+);
 
-  //テトリミノの描画
-  for (let y = 0; y < TETSIZE; y++) {
-    for (let x = 0; x < TETSIZE; x++) {
-      if (mino[y][x]) {
-        drawBlock(stockedCtx, x + 1, y + 1, minoIndex);
-      }
-    }
-  }
+const keyEscape$ = keyboardEvent$.pipe(
+  filter((e: KeyboardEvent) => e.code === "Escape"),
+).pipe(
+  stockOrExchangeMino$,
+);
+const keyboardEventListener$ = merge(
+  keyDown$,
+  keyLeft$,
+  keyRight$,
+  keySpace$,
+  keyEscape$,
+);
 
-  return of(undefined);
-};
-
-/**
- * ブロック一つを描画する
- * @param x x座標
- * @param y y座標
- * @param minoIndex
- */
-const drawBlock = (
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  minoIndex: number,
-) => {
-  const px = x * BLOCK_SIZE;
-  const py = y * BLOCK_SIZE;
-  //塗りを設定
-  ctx.fillStyle = minoColors[minoIndex];
-  ctx.fillRect(px, py, BLOCK_SIZE, BLOCK_SIZE);
-  //線を設定
-  ctx.strokeStyle = "black";
-  //線を描画
-  ctx.strokeRect(px, py, BLOCK_SIZE, BLOCK_SIZE);
-};
-
-/**
- * 動きが止まったミノをボード座標に書き写す
- * @param mino 対象のミノ
- * @param minoPositionX ミノのx座標
- * @param minoPositionY ミノのy座標
- * @param minoIndex ミノのID
- */
-const fixTet = (
-  mino: number[][],
-  minoPositionX: number,
-  minoPositionY: number,
-  minoIndex: number,
-) => {
-  for (let y = 0; y < TETSIZE; y++) {
-    for (let x = 0; x < TETSIZE; x++) {
-      if (mino[y][x]) {
-        //ボードに書き込む
-        board[minoPositionY + y][minoPositionX + x] = minoIndex;
-      }
-    }
-  }
-  return of(undefined);
-};
-
-/** 揃っている行があれば消す */
-const clearLine = () => {
-  /** 削除する行 */
-  let clearLineCount = 0;
-
-  //ボードの行を上から調査
-  for (let y = 0; y < BOARD_ROW; y++) {
-    // 一列揃ってると仮定する(フラグ)
-    let isLineOK = true;
-    // 列に0が入っていないか調査
-    for (let x = 0; x < BOARD_COL; x++) {
-      if (board[y][x] === 0) {
-        // 0が入ってたのでフラグをfalse
-        isLineOK = false;
-        break;
-      }
-    }
-    if (isLineOK) {
-      // 消した行のカウントをインクリメント
-      clearLineCount++;
-      // ここに来るということはその列が揃っていたことを意味する
-      // その行から上に向かってfor文を動かす
-      for (let ny = y; ny > 0; ny--) {
-        for (let nx = 0; nx < BOARD_COL; nx++) {
-          //一列上の情報をコピーする
-          board[ny][nx] = board[ny - 1][nx];
-        }
-      }
-    }
-  }
-
-  return of(clearLineCount);
-};
-
-// ---------- ↑ テトリス描画関連 ↑ ----------
+// ---------- ↑ キーボード操作関連 ↑ ----------
 
 // ---------- ↓ ゲームシステム関連 ↓ ----------
 
 /** ゲームの初期化 */
 const initializedGame$ = startTetris$.pipe(
   // ボードの初期化
-  tap(() => initializeBoard()),
+  initializeBoard$,
   // ミノをセット
-  tap(() => setMino()),
+  setMino$,
   // 最初のミノを描画
-  switchMap(() => draw$),
+  draw$,
   // 次のミノの描画
-  switchMap(() => nextMinoDraw$),
+  nextMinoDraw$,
+  // 制限時間のタイマーをセット
+  startTimer$
 );
 
 /** ゲーム処理全体 */
@@ -653,58 +661,8 @@ const gameInterval$ = initializedGame$.pipe(
     )
   ),
   // 描画
-  mergeMap(() => draw$),
+  draw$,
 );
-
-/**
- * ゲームオーバーかcheckする
- */
-const checkGameOver$ = canMinoMove(0, 1).pipe(
-  filter((data) => !data),
-  tap(() => showScore()),
-  tap(() => isGameOver$.next()),
-);
-
-const showScore = () => {
-  const scoreEl = document.getElementById("score");
-  if (scoreEl) {
-    const score = scoreEl.textContent;
-    window.alert(`ゲームーオーバーです。点数は${score}点でした。`);
-  }
-};
-
-/** 特典を追加 */
-const addScore = (clearLineCount: number) =>
-  mino$.pipe(
-    tap((mino) => {
-      const scoreEl = document.getElementById("score");
-      if (scoreEl) {
-        const nowScore = Number(scoreEl.textContent);
-        let baseScore = 0;
-        baseScore += clearLineCount * 100;
-
-        // テトリス！！
-        if (clearLineCount === 4) {
-          baseScore += 400;
-        }
-
-        // Tスピン！！
-        if (Rotated_T_Mino.some((m) => isEqual(m, mino))) {
-          switch (clearLineCount) {
-            case 2:
-              baseScore *= 2;
-              break;
-            case 3:
-              baseScore *= 3;
-              break;
-            default:
-              break;
-          }
-        }
-        scoreEl.textContent = (nowScore + baseScore).toString();
-      }
-    }),
-  );
 
 // ---------- ↑ ゲームシステム関連 ↑ ----------
 
