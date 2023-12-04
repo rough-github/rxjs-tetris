@@ -378,20 +378,18 @@ const checkGameOver$ = <T>(source$: Observable<T>): Observable<boolean> =>
   );
 
 /** タイマーを走らせる */
-const startTimer$ = <T>(source$: Observable<T>): Observable<number> =>
-  source$.pipe(
-    switchMap(() => interval(1000)),
-    takeUntil(isGameOver$),
-    tap((count) => {
-      const timeEl = document.getElementById("time");
-      if (timeEl) {
-        timeEl.textContent = (60 - count).toString();
-        if (count === 60) {
-          isGameOver$.next();
-        }
+const startTimer$ = interval(1000).pipe(
+  takeUntil(isGameOver$),
+  tap((count) => {
+    const timeEl = document.getElementById("time");
+    if (timeEl) {
+      timeEl.textContent = (60 - count).toString();
+      if (count === 60) {
+        isGameOver$.next();
       }
-    }),
-  );
+    }
+  }),
+);
 
 // ---------- ↑ ゲームの終了処理関連 ↑ ----------
 
@@ -642,8 +640,6 @@ const initializedGame$ = startTetris$.pipe(
   draw$,
   // 次のミノの描画
   nextMinoDraw$,
-  // 制限時間のタイマーをセット
-  startTimer$,
 );
 
 /** ゲーム処理全体 */
@@ -662,6 +658,8 @@ const gameInterval$ = initializedGame$.pipe(
       keyboardEventListener$.pipe(
         takeUntil(isGameOver$),
       ),
+      // 制限時間のタイマーをセット
+      startTimer$,
     )
   ),
   // 描画
