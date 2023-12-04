@@ -14,8 +14,8 @@ import {
   switchMap,
   takeUntil,
   tap,
-// } from "https://code4fukui.github.io/rxjs-es/rxjs.js";
-} from "https://deno.land/x/rxjs@v1.0.2/mod.ts";
+} from "https://code4fukui.github.io/rxjs-es/rxjs.js";
+// } from "https://deno.land/x/rxjs@v1.0.2/mod.ts";
 import { isEqual } from "https://cdn.jsdelivr.net/npm/lodash-es@4.17.21/lodash.min.js";
 import {
   BLOCK_SIZE,
@@ -52,8 +52,8 @@ const initializeBoard$ = <T>(source$: Observable<T>): Observable<T> =>
           board[y][x] = 0;
         }
       }
-    })
-  )
+    }),
+  );
 
 /**
  * テトリミノのindexを抽選
@@ -123,9 +123,9 @@ const setMino$ = <T>(source$: Observable<T>): Observable<T> => {
     tap(() => {
       nextMinoIndex = generateRandomMinoIdx();
       nextMino = minoTypes[nextMinoIndex];
-    })
+    }),
   );
-}
+};
 
 // ---------- ↑ ミノに関する情報 ↑ ----------
 
@@ -140,9 +140,9 @@ const showScore = () => {
 };
 
 /** 得点を追加 */
-const addScore$ = (source$: Observable<number>): Observable<number> => 
+const addScore$ = (source$: Observable<number>): Observable<number> =>
   source$.pipe(
-    tap(clearLineCount => {
+    tap((clearLineCount) => {
       const scoreEl = document.getElementById("score");
       if (scoreEl) {
         const nowScore = Number(scoreEl.textContent);
@@ -181,8 +181,8 @@ const addScore$ = (source$: Observable<number>): Observable<number> =>
  */
 const draw$ = <T>(source$: Observable<T>): Observable<T> =>
   source$.pipe(
-    tap(() => draw(mino!, position_x, position_y, minoIndex!))
-  )
+    tap(() => draw(mino!, position_x, position_y, minoIndex!)),
+  );
 
 /**
  * 描画処理
@@ -221,10 +221,10 @@ const draw = (
   }
 };
 
-const nextMinoDraw$ = <T>(source$: Observable<T>): Observable<T> => 
+const nextMinoDraw$ = <T>(source$: Observable<T>): Observable<T> =>
   source$.pipe(
-    tap(() => nextMinoDraw(nextMino!, nextMinoIndex!))
-  )
+    tap(() => nextMinoDraw(nextMino!, nextMinoIndex!)),
+  );
 
 /**
  * 描画処理
@@ -254,8 +254,8 @@ const nextMinoDraw = (mino: number[][], minoIndex: number) => {
  */
 const stockedMinoDraw$ = <T>(source$: Observable<T>): Observable<T> =>
   source$.pipe(
-    tap(() => stockedMinoDraw(stockedMino!, stockedMinoIndex!))
-  )
+    tap(() => stockedMinoDraw(stockedMino!, stockedMinoIndex!)),
+  );
 
 /**
  * 描画処理
@@ -304,7 +304,7 @@ const drawBlock = (
 };
 
 /** 動きが止まったミノをボード座標に書き写す */
-const fixTet$ = <T>(source$: Observable<T>): Observable<T> => 
+const fixTet$ = <T>(source$: Observable<T>): Observable<T> =>
   source$.pipe(
     tap(() => {
       for (let y = 0; y < TETSIZE; y++) {
@@ -315,11 +315,11 @@ const fixTet$ = <T>(source$: Observable<T>): Observable<T> =>
           }
         }
       }
-    })
-  )
+    }),
+  );
 
 /** 揃っている行があれば消す */
-const clearLine$ = <T>(source$: Observable<T>): Observable<number> => 
+const clearLine$ = <T>(source$: Observable<T>): Observable<number> =>
   source$.pipe(
     map(() => {
       /** 削除する行 */
@@ -352,8 +352,8 @@ const clearLine$ = <T>(source$: Observable<T>): Observable<number> =>
       }
 
       return clearLineCount;
-    })
-  )
+    }),
+  );
 
 // ---------- ↑ テトリス描画関連 ↑ ----------
 
@@ -368,30 +368,30 @@ const isGameOver$ = new Subject<void>();
 const checkGameOver$ = <T>(source$: Observable<T>): Observable<boolean> =>
   source$.pipe(
     mergeMap(() => canMinoMove$(0, 1)),
-    tap(canMove => {
+    tap((canMove) => {
       if (!canMove) {
         // ゲームーオーバー
-        isGameOver$.next()
-        showScore()
+        isGameOver$.next();
+        showScore();
       }
-    })
-  )
+    }),
+  );
 
 /** タイマーを走らせる */
 const startTimer$ = <T>(source$: Observable<T>): Observable<number> =>
   source$.pipe(
     switchMap(() => interval(1000)),
     takeUntil(isGameOver$),
-    tap(count => {
-      const timeEl = document.getElementById('time')
+    tap((count) => {
+      const timeEl = document.getElementById("time");
       if (timeEl) {
-        timeEl.textContent = (60 - count).toString()
+        timeEl.textContent = (60 - count).toString();
         if (count === 60) {
-          isGameOver$.next()
+          isGameOver$.next();
         }
       }
-    })
-  )
+    }),
+  );
 
 // ---------- ↑ ゲームの終了処理関連 ↑ ----------
 
@@ -410,17 +410,18 @@ const cantMove$ = of(undefined).pipe(
   // ゲームオーバーかcheckする
   checkGameOver$,
   // 次のミノを描画
-  nextMinoDraw$
-)
+  nextMinoDraw$,
+);
 
 /** ミノが移動可能かどうか */
 const canMinoMove$ = (
   dx: number,
   dy: number,
-): Observable<boolean> => of(undefined).pipe(
-  filter(() => !!mino),
-  switchMap(() => of(canMove(dx, dy, position_x, position_y, mino!)))
-)
+): Observable<boolean> =>
+  of(undefined).pipe(
+    filter(() => !!mino),
+    switchMap(() => of(canMove(dx, dy, position_x, position_y, mino!))),
+  );
 
 /**
  * 指定された方向に移動できるか？
@@ -485,14 +486,14 @@ const minoMoveDown$ = canMinoMove$(0, 1).pipe(
 const createRotateMino$ = <T>(source$: Observable<T>): Observable<void> =>
   source$.pipe(
     map(() => createRotateMino(mino!)),
-    switchMap(newMino => {
+    switchMap((newMino) => {
       if (canMove(0, 0, position_x, position_y, newMino)) {
         mino = newMino;
         return of(undefined);
       }
       return NEVER;
-    })
-  )
+    }),
+  );
 
 /** ミノを回転させる */
 const createRotateMino = (mino: MinoType) => {
@@ -513,24 +514,27 @@ const createRotateMino = (mino: MinoType) => {
 // ---------- ↓ ミノ交換関連 ↓ ----------
 
 /** ストックにミノがあれば交換して、なければストックする */
-const stockOrExchangeMino$ = <T>(source$: Observable<T>): Observable<void | boolean> =>
+const stockOrExchangeMino$ = <T>(
+  source$: Observable<T>,
+): Observable<void | boolean> =>
   source$.pipe(
     switchMap(() =>
-    iif(
-      () => !!stockedMino,
-      // 交換
-      exchangeMino$,
-      // ストック
-      stockMino$,
-    ))
-  )
+      iif(
+        () => !!stockedMino,
+        // 交換
+        exchangeMino$,
+        // ストック
+        stockMino$,
+      )
+    ),
+  );
 
 /** ミノをストックに入れる */
 const stockMino$ = of(undefined).pipe(
   tap(() => stockMino(mino!, minoIndex!)),
   stockedMinoDraw$,
   setMino$,
-)
+);
 
 const stockMino = (mino: MinoType, minoInidex: number) => {
   stockedMino = mino;
@@ -540,10 +544,10 @@ const stockMino = (mino: MinoType, minoInidex: number) => {
 /** ミノをストックにあるものと交換できたら交換する */
 const exchangeMino$ = of(undefined).pipe(
   map(() => canMove(0, 0, position_x, position_y, stockedMino!)),
-  filter(canExchange => canExchange),
+  filter((canExchange) => canExchange),
   tap(() => exchangeMino()),
   stockedMinoDraw$,
-)
+);
 
 /** ミノをストックにあるものと交換する */
 const exchangeMino = () => {
@@ -639,7 +643,7 @@ const initializedGame$ = startTetris$.pipe(
   // 次のミノの描画
   nextMinoDraw$,
   // 制限時間のタイマーをセット
-  startTimer$
+  startTimer$,
 );
 
 /** ゲーム処理全体 */
