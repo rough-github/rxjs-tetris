@@ -334,6 +334,7 @@ const startTimer$ = interval(1000).pipe(
     if (timeEl) {
       timeEl.textContent = (180 - count).toString();
       if (count === 180) {
+        showScore()
         isGameOver$.next();
       }
     }
