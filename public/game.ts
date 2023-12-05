@@ -16,7 +16,7 @@ import {
   tap,
 } from "https://code4fukui.github.io/rxjs-es/rxjs.js";
 // } from "https://deno.land/x/rxjs@v1.0.2/mod.ts";
-import { isEqual } from "https://cdn.jsdelivr.net/npm/lodash-es@4.17.21/lodash.min.js";
+import { isEqual, shuffle } from "https://cdn.jsdelivr.net/npm/lodash-es@4.17.21/lodash.min.js";
 import {
   BLOCK_SIZE,
   BOARD_COL,
@@ -55,11 +55,24 @@ const initializeBoard$ = <T>(source$: Observable<T>): Observable<T> =>
     }),
   );
 
+/** ミノのindexの配列 */
+let MinoIndexes: number[] = []
+
 /**
  * テトリミノのindexを抽選
  */
-const generateRandomMinoIdx = () =>
-  Math.floor(Math.random() * (minoTypes.length - 1)) + 1;
+const generateRandomMinoIdx = (): number => {
+  if (MinoIndexes.length === 0) {
+    MinoIndexes = arrageNumbers()
+  }
+  const idx = MinoIndexes[0]
+  MinoIndexes.shift()
+
+  return idx
+}
+
+/** 1 ~ 7までの数字の配列を作成 */
+const arrageNumbers = (): number[] => shuffle([...Array(7).keys()].map(i => ++i))
 
 /** ゲーム開始 */
 const startTetris$ = of(undefined);
