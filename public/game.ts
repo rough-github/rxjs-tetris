@@ -396,8 +396,8 @@ const startTimer$ = interval(1000).pipe(
   tap((count) => {
     const timeEl = document.getElementById("time");
     if (timeEl) {
-      timeEl.textContent = (60 - count).toString();
-      if (count === 60) {
+      timeEl.textContent = (180 - count).toString();
+      if (count === 180) {
         isGameOver$.next();
       }
     }
